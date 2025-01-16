@@ -1,0 +1,260 @@
+---
+title: "Results analysis"
+author: "Alexandru Craevschi"
+date: "`r Sys.Date()`"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(phytools)
+library(rstan)
+library(ggplot2)
+library(ggpubr)
+#library(rethinking)
+library(dplyr)
+library(latex2exp)
+library(reshape2)
+library(HDInterval)
+library(ggridges)
+```
+
+# Overview
+
+### This document summarizes the analysis of posterior distributions from phylogenetic models of language change. We examined two key aspects:
+
+**Stationary probabilities:** Differences in long-term state probabilities between two regimes of TAM character: "yes" and "no".
+
+**Entry and exit rates:** Transition dynamics for moving into or out of specific linguistic states. This should help us understand the mechanisms of change towards or away from a specific state.
+
+## Loading results and useful functions
+
+```{r}
+# Load posterior samples for a specific model
+model_type <- "simmap_verb_hierarchy"
+
+states <- c("AAA", "AAB", "ABA", "ABB", "ABC")
+n.states <- length(states)
+
+# Load combined posterior fit
+combined.fit <- readRDS(paste0("analysis_results/", model_type, "/combined_fit.rds"))
+post <- extract(combined.fit, pars = "mu")[[1]]
+```
+Here, we load the posterior samples of the `mu` parameter, representing transition rates between linguistic states.
+
+
+The `make.Q.matrix` function generates a transition rate matrix (`Q`) from a vector of posterior samples of the model parameters. Given a transition rate matrix `Q`, `get.stationary.probs` returns a vector of stationary probabilities.  
+
+Entry rates are computed according to a formula from the supplementary materials from Carling and Cathcart (2021). The calculation was proposed to the authors by Gerhard Jäger. In essence, we weight each entry rate towards a state by its stationary probability, and then sum all of those weighted entry rates.
+
+Exit rates correspond to the absolute diagonal value from `Q` matrix. 
+
+```{r}
+# Create a Q matrix from parameter values
+make.Q.matrix <- function(vec) { 
+  Q <- matrix(0, nrow = n.states, ncol = n.states)
+  k <- 1
+  for (i in 1:n.states) {
+    for (j in 1:n.states) {
+      if (i == j) next
+      Q[i, j] = vec[k]
+      k <- k + 1
+    }
+    Q[i, i] <- -sum(Q[i, ])
+  }
+  rownames(Q) <- colnames(Q) <- c("AAA", "AAB", "ABA", "ABB", "ABC")
+  return(Q)
+}
+
+# Function to compute stationary probabilities
+get.stationary.probs <- function(Q) {
+  svd.decomp <- svd(Q)
+  return(svd.decomp$u[,n.states] / sum(svd.decomp$u[,n.states]))
+}
+
+# Function to calculate entry rates
+get.entry.rates <- function(Q) {
+  states <- colnames(Q)
+  svd.decomp <- svd(Q)
+  stationary.probs <- svd.decomp$u[, 5] / sum(svd.decomp$u[, 5])
+  names(stationary.probs) <- states
+  
+  entry.rates <- numeric(length(states))
+  names(entry.rates) <- states
+  for (i in seq_along(states)) {
+    state.i <- states[i]
+    stat.probs.state <- stationary.probs[names(stationary.probs) != state.i]
+    entry.rates[state.i] <- sum(Q[rownames(Q) != state.i, state.i] * stat.probs.state) / sum(stat.probs.state)
+  }
+  return(entry.rates)
+}
+
+get.exit.rates <- function(Q){
+  exit.rates <- c()
+  for (i in 1:n.states){
+    exit.rates <- c(exit.rates, abs(Q[i, i]))
+  }
+  names(exit.rates) <- states
+  return(exit.rates)
+}
+
+```
+
+## Stationary Probabilities
+
+We compute stationary probabilities for both "no" and "yes" regimes, representing the long-term probability of each linguistic state. The priors used in the model correspond to log-normal distribution. However in the model, we sampled each `mu` from a normal distribution $\mathcal{N}(\mu=0, \sigma=1)$ and then exponentiated it. Because of that, before using samples from `post`, we need to exponentiate it. `post` contains 40 parameters and is a vector. That is related to how the parameters are stored in Stan and that is the reason we needed `make.Q.matrix` function. 
+
+We get 1000 samples from the posterior distribution, convert them to a 1000 transition matrices, and finally compute 1000 stationary probabilities for each of the five states. 
+
+```{r}
+# take 1000 samples with a seed
+set.seed(1997)
+n_samples <- 1000
+sample.inds <- sample(1:nrow(post), n_samples)
+
+# Generate Q matrices for "no" and "yes" conditions and exponentiate the values
+Q.no <- exp(post[sample.inds, 1:20])
+Q.yes <- exp(post[sample.inds, 21:40])
+
+# Compute stationary probabilities for each sample
+list.no <- lapply(1:n_samples, function(i) make.Q.matrix(Q.no[i, ]))
+list.yes <- lapply(1:n_samples, function(i) make.Q.matrix(Q.yes[i, ]))
+list.no.svd <- lapply(list.no, get.stationary.probs)
+list.yes.svd <- lapply(list.yes, get.stationary.probs)
+```
+
+## Difference in stationary probability
+
+First, we compute the differences in stationary probabilities and store them in data.frame `df_diff`.
+```{r}
+df_diff <- data.frame(matrix(ncol = length(states), nrow = n_samples))
+colnames(df_diff) <- states
+
+for (j in 1:length(states)) {
+  for (i in 1:n_samples) {
+    df_diff[i, j] <- list.yes.svd[[i]][j] - list.no.svd[[i]][j]
+  }
+}
+```
+
+And then we plot the difference in the posterior stationary probabilities of the two regimes. Since we subtract stationary probabilities for "no" regime from stat. prob. for "yes" regime, there are three possibilities and their interpretations: 
+
+1) The difference is positive. That means that stationary probability for a state has increased under "yes" regime and hence we conclude that a pattern is preferred under expanded past perfect. 
+
+2) The difference interval includes zero. That means that there is no difference between the regimes for a pattern. 
+
+3) The difference is negative. The opposite of (1) is true. 
+
+
+```{r}
+
+# change the character state to plot for different states
+state <- "ABB"
+
+# All possible states, repeated for convenience
+states <- c("AAA", "AAB", "ABA", "ABB", "ABC")
+
+# Example plot for one state
+ggplot() + 
+  geom_density(aes(x = df_diff[,state]), fill = "#E69F00", alpha = 0.75) +
+  geom_vline(xintercept = hdi(df_diff[,state], credMass = 0.95), linetype = "dashed", linewidth=1) +
+  geom_vline(xintercept = median(df_diff[,state]), linetype = "dotdash", color = "#0072B2", linewidth=1) +
+  xlab(TeX(paste0("$\\Delta$Posterior stationary probability of ", state))) +
+  theme_classic()
+
+
+```
+
+## Entry/exit rate differences
+
+The entry rate quantifies how likely it is for the linguistic system to transition into a specific state from other states. Differences in entry rates between the "yes" and "no" regimes are calculated to assess whether the expanded past perfect influences the likelihood of entering particular states.
+
+The exit rate measures the propensity of the linguistic system to transition out of a specific state. By comparing the exit rates between "yes" and "no" regimes, we evaluate how the expanded past perfect influences the stability of a given state.
+
+To explain higher stationary probability of ABB, we expect to see:
+
+1) A positive difference in entry rate for ABB, meaning there is higher propensity to enter this state.
+
+2) A negative difference in exit rate for ABB, meaning there is higher stability in this state and the pattern is less likely to change.
+
+```{r}
+entry.yes.list <- lapply(list.yes, get.entry.rates)
+exit.yes.list <- lapply(list.yes, get.exit.rates)
+
+entry.no.list <- lapply(list.no, get.entry.rates)
+exit.no.list <- lapply(list.no, get.exit.rates)
+
+# Helper function to subtract two named vectors
+subtract_vectors <- function(vec1, vec2) {
+  vec1[states] - vec2[states]  # Subtract vectors element-wise based on 'states'
+}
+
+entry.diff.list <- Map(subtract_vectors, entry.yes.list, entry.no.list)
+exit.diff.list <- Map(subtract_vectors, exit.yes.list, exit.no.list)
+```
+
+```{r}
+entry.df_diff <- data.frame(do.call(rbind, entry.diff.list))
+colnames(entry.df_diff) <- states  
+
+exit.df_diff <- data.frame(do.call(rbind, exit.diff.list))
+colnames(exit.df_diff) <- states  
+```
+
+
+Plot entry rate diff.: 
+
+```{r}
+state <- "ABB"
+
+ggplot() + 
+  geom_density(aes(x = entry.df_diff[,state]), fill = "#E69F00", alpha = 0.75) +
+  geom_vline(xintercept = hdi(entry.df_diff[,state], credMass = 0.95), linetype = "dashed", linewidth=1) +
+  geom_vline(xintercept = median(entry.df_diff[,state]), linetype = "dotdash", color = "#0072B2", linewidth=1) +
+  xlab(TeX(paste0("$\\Delta$Posterior entry rates of ", state))) +
+  theme_classic()
+```
+
+Plot exit rate diff.:
+
+
+```{r}
+state <- "ABB"
+
+ggplot() + 
+  geom_density(aes(x = exit.df_diff[,state]), fill = "#E69F00", alpha = 0.75) +
+  geom_vline(xintercept = hdi(exit.df_diff[,state], credMass = 0.95), linetype = "dashed", linewidth=1) +
+  geom_vline(xintercept = median(exit.df_diff[,state]), linetype = "dotdash", color = "#0072B2", linewidth=1) +
+  xlab(TeX(paste0("$\\Delta$Posterior exit rates of ", state))) +
+  theme_classic()
+```
+
+Combine all the results and print out the HDIs in a separate table.
+
+```{r}
+# Function to compute HDI for a single column
+compute_hdi <- function(data, cred_mass = 0.95) {
+  hdi_interval <- hdi(data, cred_mass)
+  paste0("[", round(hdi_interval[1], 3), ", ", round(hdi_interval[2], 3), "]")
+}
+
+# Create a new data frame to store results
+result_df <- data.frame(matrix(ncol = length(states), nrow = 3))
+colnames(result_df) <- states
+rownames(result_df) <- c("Stationary probability diff.", "Entry rates diff.", "Exit rates diff.")
+
+# Compute HDI intervals for each state and each metric
+for (state in states) {
+  result_df["Stationary probability diff.", state] <- compute_hdi(df_diff[[state]])
+  result_df["Entry rates diff.", state] <- compute_hdi(entry.df_diff[[state]])
+  result_df["Exit rates diff.", state] <- compute_hdi(exit.df_diff[[state]])
+}
+
+# View the resulting data frame
+print(result_df)
+
+# Save the result as a TSV file
+write.table(result_df, paste0("../posterior_summaries/", model_type, ".tsv"), sep = "\t", quote = FALSE, col.names = NA)
+```
