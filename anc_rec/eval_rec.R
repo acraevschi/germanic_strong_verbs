@@ -1,14 +1,9 @@
-
-author_name <- 'chang_etal'
-
-prediction <- read.csv(
-    paste("anc_rec/", author_name, "/combined_anc_rec.csv", sep="")
-    )
+prediction <- read.csv("combined_anc_rec.csv")
 
 colnames(prediction)[1] <- "form"
 
 reconstruction <- read.csv(
-    "anc_rec/proto_gem_forms/proto_gem_forms.csv", encoding = "UTF-8", stringsAsFactors = F
+    "proto_gem_forms/proto_gem_forms.csv", encoding = "UTF-8", stringsAsFactors = F
     )
 
 patterns <- reconstruction$simple_pattern_sing

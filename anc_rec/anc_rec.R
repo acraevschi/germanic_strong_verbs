@@ -104,7 +104,7 @@ for (i in inds) {
                     log_death_rate=log_death_rate[i]
   )
   fit.rec <- stan(
-    file = "anc_rec/anc_rec.stan", 
+    file = "anc_rec.stan", 
     data=data.list, 
     algorithm = "Fixed_param",
     iter=1,chains=1
@@ -119,7 +119,6 @@ rownames(Z) <- names(lst_chars)
 Z.norm <- Z/n.samples
 
 max_colnames <- apply(Z.norm, 1, function(row) colnames(Z.norm)[which.max(row)])
-# print(max_colnames)
 
-write.csv(Z.norm, paste("anc_rec/combined_anc_rec.csv", sep=""), row.names = TRUE)
+write.csv(Z.norm, paste("combined_anc_rec.csv", sep=""), row.names = TRUE)
 
