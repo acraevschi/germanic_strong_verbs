@@ -72,7 +72,7 @@ for (tree.ind in 1:50) {
     for (i in 1:n_samples) {
       df_diff[i, j] <- list.yes.svd[[i]][j] - list.no.svd[[i]][j]
     }
-    ci_state <- hdi(df_diff[, j], credMass = 0.8)
+    ci_state <- hdi(df_diff[, j], credMass = 0.89) # change `credMass` to see false positives for different HDI levels
     if (ci_state[1] * ci_state[2] > 0) {
       print(paste0("False positive for tree ", tree.ind, " state ", states[j]))
       false_positive <- false_positive + 1
