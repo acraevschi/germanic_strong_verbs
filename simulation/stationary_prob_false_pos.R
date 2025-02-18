@@ -81,13 +81,13 @@ for (tree.ind in 1:50) {
 }
 
 
-# 1% false positive rate under 99% HDI
+# False positives under 99% HDI
 
 # [1] "False positive for tree 27 state ABB"
 
 ##################################################################
 
-# 4% false positive rate under 95% HDI
+# False positives under 95% HDI
 
 # [1] "False positive for tree 10 state AAA"
 # [1] "False positive for tree 27 state ABB"
@@ -95,7 +95,7 @@ for (tree.ind in 1:50) {
 
 ##################################################################
 
-# 12% false positive rate under 89% HDI
+# False positives under 89% HDI
 
 # [1] "False positive for tree 8 state ABC"
 # [1] "False positive for tree 10 state AAA"
