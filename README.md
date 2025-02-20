@@ -4,6 +4,8 @@ This repository contains code and data to reproduce the analysis from the paper 
 
 For the details about methodology and/or data, please refer to the paper (link comming). All the results are saved as RDS files (most of them within `analysis_results`' subfolders) and can be read with R to avoid the necessity to re-run everything, as it requires significant compute time.
 
+A brief description of the analysis of the results of the models is presented in `results_analysis_summ.Rmd`. 
+
 ## Data collection and annotation
 
 Data collection pipeline is distributed in two folders: `unimorph_data` and `wiktionary_proto_germanic`. The scripts from these folders extract the data from [Unimorph](https://unimorph.github.io/) and [Wiktionary](https://www.wiktionary.org/), respectively. The script `scrap_for_wiktionary_germanic_descendants` finds strong verbs descending from Proto-Germanic strong verbs and extracts the descendants of these verbs using the web version of Wiktionary. This is done by using [BeautifulSoup](https://pypi.org/project/beautifulsoup4/). 
@@ -43,5 +45,3 @@ To validate the robustness of the ancestral state reconstruction, an ancestry-co
 ### Simulation Study
 
 A simulation study is conducted to assess the false positive rate of the hierarchical model-fitting procedure. Synthetic datasets are generated under the non-hierarchical model (`sim_history.R`), ensuring no inherent differences across regimes. The hierarchical model is then fitted to this dataset to test whether it will erroneously detect regime-based difference. This validation confirms that the hierarchical model does not produce spurious results, reinforcing the reliability of the main study findings.
-
-A brief description of the analysis of the results of the models in presented in `results_analysis_summ.Rmd`. 
