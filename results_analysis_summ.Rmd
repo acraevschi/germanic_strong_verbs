@@ -1,6 +1,6 @@
 ---
 title: "Results analysis"
-author: "Alexandru Craevschi"
+author: "-"
 date: "`r Sys.Date()`"
 output:
   pdf_document: default
