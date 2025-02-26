@@ -2,7 +2,7 @@
 
 This repository contains code and data to reproduce the analysis from the paper **Semantics drives analogical change in Germanic strong verb paradigms: A phylogenetic study**. 
 
-For the details about methodology and/or data, please refer to the paper (link comming). All the results are saved as RDS files (most of them within `analysis_results`' subfolders) and can be read with R to avoid the necessity to re-run everything, as it requires significant compute time.
+For the details about methodology and/or data, please refer to the [paper](https://arxiv.org/abs/2502.17670) (preprint). All the results are saved as RDS files (most of them within `analysis_results`' subfolders) and can be read with R to avoid the necessity to re-run everything, as it requires significant compute time.
 
 A brief description of the analysis of the results of the models is presented in `results_analysis_summ.Rmd`. 
 
